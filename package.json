@@ -1,0 +1,23 @@
+{
+  "name": "fakerjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "faker": "^3.1.0",
+    "mongoose": "^4.7.5"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.18.0",
+    "babel-preset-es2015": "^6.18.0",
+    "babel-register": "^6.18.0",
+    "babel-root-import": "^4.1.5",
+    "json-schema-faker": "^0.4.0"
+  }
+}
