@@ -1,19 +1,56 @@
-import assert from 'assert';
-
-
 class MongooseFakerSchema {
   constructor(parser) {
     this.parser = parser;
   }
 
-  parseValidate(name, path, parent) {
+  isObject(path) {
+    return path.instance && path.instance === 'Array';
+  }
+
+  normalizeType(origin, obj = {}) {
+    let target;
+
+    origin = origin.toLowerCase();
+    
+    if(origin === 'date') {
+      target = 'string';
+      obj.type = 'string';
+      obj.format = 'date-time';
+    }
+    else {
+      obj.type = origin;
+    }
+
+    return obj;
+  }
+
+  parseValidate(type, name, path, parent) {
     let validates = {};
+    
+    if(type === 'date') {
+      validates.type = 'string';
+      validates.format = 'date-time';
+    }
+    else if(type === 'array') {
+      let subtype = path.options.type[0];
+      validates.minItems = 2;
+      validates.uniqueItems = true;
+      validates.items = MongooseFakerSchema.createDefaultObjectSchema(name);
+      if(subtype.type) {
+        validates.items.type = subtype.type.name.toLowerCase();
+      }
+      else {
+        Object.keys(subtype).forEach(k => {
+          validates.items.properties[k] = this.normalizeType(subtype[k].type.name.toLowerCase());
+        });
+      }
+    }
 
     if(path.enumValues && path.enumValues.length > 0) {
       validates.enum = path.enumValues;
     }
 
-    if(path.isRequired) {
+    if(path.isRequired || this.isObject(path)) {
       parent.required.push(name);
     }
 
@@ -25,7 +62,7 @@ class MongooseFakerSchema {
     let json;
     let current;
     let validates;
-    
+
     type = path.instance.toLowerCase();
     current = this.ensureNestedField(name);
     name = name.split('.').pop();
@@ -37,12 +74,12 @@ class MongooseFakerSchema {
       json = MongooseFakerSchema.createNormalSchema(name, type);
     }
 
-    validates = this.parseValidate(name, path, current);
+    validates = this.parseValidate(type, name, path, current);
     Object.assign(json, validates);
-    console.log('parent: ', current);
-    console.log('name', name);
-    console.log(json);
-    console.log('------------------');
+
+    if(current.required) {
+      current.required = [...new Set(current.required)];
+    }
 
     current.properties[name] = json;
 
@@ -55,9 +92,16 @@ class MongooseFakerSchema {
     let parent = this.parser.json;
 
     seps.forEach(it => {
-      parent.properties[it] = MongooseFakerSchema.createDefaultObjectSchema(it);
+      parent.required.push(it);      
+      parent.properties[it] = parent.properties[it] || 
+        MongooseFakerSchema.createDefaultObjectSchema(it);
       parent = parent.properties[it];
     });
+
+    //The nested prop default required
+    if(seps.length > 0) {
+      parent.required.push(target);
+    }
 
     return parent;
   }
@@ -80,7 +124,7 @@ class MongooseFakerSchema {
   }
 }
 
-class MongooseSchemaParser {
+export default class MongooseSchemaParser {
   constructor() {
     this.exceptions = ['_id', '__v'];
   }
@@ -102,16 +146,13 @@ class MongooseSchemaParser {
       }
     });
 
-    // console.dir(this.json.properties, { colors: true });
+    if(this.json.required) {
+      this.json.required = [...new Set(this.json.required)];
+    }
+
     console.log(JSON.stringify(this.json, null, 4));
 
-    return;
+    return this.json;
   }
 }
 
-export default function loadModels(models) {
-  Object.keys(models).forEach(name => {
-    let parser = new MongooseSchemaParser();
-    parser.parse(name, models[name]);
-  });
-}

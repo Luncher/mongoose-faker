@@ -1,4 +1,4 @@
-import config from '~/config/';
+import config from './config/';
 import mongoose from 'mongoose';
 import {Schema} from 'mongoose';
 
